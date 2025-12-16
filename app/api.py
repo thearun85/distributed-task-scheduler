@@ -1,12 +1,12 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Blueprint
 from datetime import datetime
 
-app = Flask(__name__)
+api_bp = Blueprint("api", __name__)
 
 _next_id = 1
 _tasks = {}
 
-@app.route("/health", methods=["GET"])
+@api_bp.route("/health", methods=["GET"])
 def health_check():
     return jsonify({
         "status": "healthy",
@@ -14,7 +14,7 @@ def health_check():
         "timestamp": datetime.utcnow().isoformat() + "Z"
     })
 
-@app.route("/tasks", methods=["POST"])
+@api_bp.route("/tasks", methods=["POST"])
 def create_task():
     global _next_id, _tasks
     data = request.get_json() or {}
@@ -40,7 +40,7 @@ def create_task():
 
     return jsonify(task), 201
 
-@app.route("/tasks", methods=["GET"])
+@api_bp.route("/tasks", methods=["GET"])
 def list_tasks():
     global  _tasks
     return jsonify({
@@ -48,7 +48,7 @@ def list_tasks():
         "total": len(_tasks),
     })
 
-@app.route("/tasks/<int:task_id>", methods=["GET"])
+@api_bp.route("/tasks/<int:task_id>", methods=["GET"])
 def get_task(task_id: int):
     global  _tasks
     task = _tasks.get(task_id)
@@ -59,7 +59,7 @@ def get_task(task_id: int):
 
     return jsonify(task)
 
-@app.route("/tasks/stats", methods=["GET"])
+@api_bp.route("/tasks/stats", methods=["GET"])
 def task_stats():
     global  _tasks
     stats = {}

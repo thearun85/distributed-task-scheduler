@@ -8,5 +8,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "app.api:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "app:create_app()"]
 
