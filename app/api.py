@@ -1,5 +1,10 @@
-from flask import Flask, jsonify, request, Blueprint
+from flask import Blueprint, jsonify, request
 from datetime import datetime
+
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+from app.db import get_session
+from app.models import Task, TaskState
 
 api_bp = Blueprint("api", __name__)
 
@@ -16,7 +21,6 @@ def health_check():
 
 @api_bp.route("/tasks", methods=["POST"])
 def create_task():
-    global _next_id, _tasks
     data = request.get_json() or {}
     
     if "task_type" not in data:
@@ -24,50 +28,83 @@ def create_task():
             "error": "task_type is a required field"
         }), 400
 
-    task = {
-        "id": _next_id,
-        "task_type": data["task_type"],
-        "payload": data.get("payload", {}),
-        "state": "PENDING",
-        "scheduled_at": data.get("scheduled_at", datetime.utcnow().isoformat() + "Z"),
-        "attempts": 0,
-        "max_attempts": data.get("max_attempts", 3),
-        "created_at": datetime.utcnow().isoformat() + "Z"
-    }
+    scheduled_at = datetime.utcnow()
+    
+    if "scheduled_at" in data:
+        try:
+            scheduled_at = datetime.fromisoformat(data['scheduled_at'].replace("Z", '00:00'))
+            scheduled_at = scheduled_at.replace(tzinfo=None)
+        except ValueError as e:
+            return jsonify({
+                "error": "Invalid scheduled_at format "
+            }), 400
+            
+    task = Task(
+        task_type=data['task_type'],
+        payload = data.get('payload', {}),
+        scheduled_at = scheduled_at,
+        max_attempts = data.get('max_attempts', 3),
+        idempotency_key = data.get('idempotency_key'),
+    )
 
-    _tasks[_next_id] = task
-    _next_id+=1
+    session = get_session()
 
-    return jsonify(task), 201
+    try:
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        return jsonify(task.to_dict()), 201
+
+    except IntegrityError as e:
+        session.rollback()
+        return jsonify({
+            "error": "Duplicate idempotency key"
+        }), 409    
+    finally:
+        session.close()
+
+    
 
 @api_bp.route("/tasks", methods=["GET"])
 def list_tasks():
-    global  _tasks
-    return jsonify({
-        "tasks": list(_tasks.values()),
-        "total": len(_tasks),
-    })
+    session = get_session()
+    try:
+        results = session.query(Task).order_by(Task.created_at.desc()).limit(100).all()
+        return jsonify({
+            "tasks": [t.to_dict() for t in results],
+            "total": len(results),
+        })
+    finally:
+        session.close()
+    
 
 @api_bp.route("/tasks/<int:task_id>", methods=["GET"])
 def get_task(task_id: int):
-    global  _tasks
-    task = _tasks.get(task_id)
-    if not task:
-        return jsonify({
-            "error": "Task not found"
-        }), 404
+    session = get_session()
+    try:
+        task = session.query(Task).filter_by(id=task_id).first()
+        if not task:
+            return jsonify({
+                "error": "Task not found"
+            }), 404
+        return jsonify(task.to_dict())
+    finally:
+        session.close()
 
-    return jsonify(task)
+    
 
 @api_bp.route("/tasks/stats", methods=["GET"])
 def task_stats():
-    global  _tasks
-    stats = {}
-    for task in _tasks.values():
-        state = task["state"]
-        stats[state] = stats.get(state, 0) +1
+    session = get_session()
+    try:
+        results = session.query(Task.state, func.count(Task.id)).group_by(Task.state).all()
+        stats = {state.value: count for state, count in results}
+        
+        return jsonify({
+                "by_state": stats,
+                "total": sum(stats.values()),
+            })
+    finally:
+        session.close()
 
-    return jsonify({
-        "by_state": stats,
-        "total": len(_tasks),
-    })
+    
