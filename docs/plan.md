@@ -12,7 +12,7 @@ Build a production grade Task scheduler that teaches distributed system concepts
 | 0 | Architecture and flow diagrams, plan.md | Completed |
 | 1 | Flask API Skeleton | Completed |
 | 2 | PostgreSQL + SQLAlchemy Models | Completed |
-| 3 | Task Repository | Yet to Start |
+| 3 | Task Repository | Completed |
 | 4 | State Machine Transitions | Yet to Start |
 | 5 | Task Handlers | Yet to Start |
 | 6 | Scheduler Loop | Yet to Start |
