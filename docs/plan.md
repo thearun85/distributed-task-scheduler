@@ -9,8 +9,8 @@ Build a production grade Task scheduler that teaches distributed system concepts
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 0 | Architecture and flow diagrams, plan.md | Yet to Start |
-| 1 | Flask API Skeleton | Yet to Start |
+| 0 | Architecture and flow diagrams, plan.md | Completed |
+| 1 | Flask API Skeleton | Completed |
 | 2 | PostgreSQL + SQLAlchemy Models | Yet to Start |
 | 3 | Task Repository | Yet to Start |
 | 4 | State Machine Transitions | Yet to Start |
